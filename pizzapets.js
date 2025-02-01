@@ -350,9 +350,11 @@ export class PizzaPet {
       this.processTriggeredDoomsdayDevicesFor(block);
       const affectedByDoomsdayDevice = this.processExplodedDoomsdayDevicesFor(block);
 
-      if (this.immediateEffects.death || this.deathAt === block || affectedByDoomsdayDevice) {
-        this.health = 0;
-        break;
+      if (!this.isInDeathFixupRange(block)) {
+        if (this.immediateEffects.death || this.deathAt === block || affectedByDoomsdayDevice) {
+          this.health = 0;
+          break;
+        }
       }
 
       if (!this.isFinalState() && (this.immediateEffects.evolve || blocksUntilNextState === 0)) {
@@ -370,20 +372,22 @@ export class PizzaPet {
         this.addHistoryEventFor(block, HISTORY_EVENTS.EXCREMENT);
       }
 
-      if (this.shouldDecrementHealth()) {
-        if (!this.wasJustFed()) {
-          this.decrementHealth();
-        }
-        if (this.health <= 0) {
-          this.health = 0;
-          break;
+      if (!this.isInDeathFixupRange(block)) {
+        if (this.shouldDecrementHealth()) {
+          if (!this.wasJustFed()) {
+            this.decrementHealth();
+          }
+          if (this.health <= 0) {
+            this.health = 0;
+            break;
+          }
         }
       }
 
       if (i >= this.behavior.health_decrement_at) { this.counter += 1; }
     }
 
-    if (!this.health) {
+    if (!this.health && !this.isInDeathFixupRange(block)) {
       this.addHistoryForDeathEventAt(block);
     }
   }
@@ -1085,5 +1089,12 @@ export class PizzaPet {
 
   get configuration() {
     return this._configuration;
+  }
+
+  isInDeathFixupRange(block) {
+    const deathFixupRanges = this.configuration.deathfixup_blocks || [];
+    return deathFixupRanges.some(range => 
+      block >= range.start && block <= range.end
+    );
   }
 }
